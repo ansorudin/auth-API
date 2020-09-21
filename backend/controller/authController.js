@@ -4,11 +4,13 @@ const validator = require("validator")
 const transporter = require('./../helpers/transporter')
 const fs = require('fs')
 const handlebars = require('handlebars')
+const random = require('./../helpers/randomNumber')
 
 // control register
 const RegisterController = (req, res) => {
     // get all data value
     const data = req.body // {email, password}
+    data.code_otp = random()
 
     // validasi data email dan password
 
@@ -75,7 +77,7 @@ const RegisterController = (req, res) => {
                                 const template = handlebars.compile(file)
                                 const hasilTemplating = template({
                                     email : data.email, 
-                                    link : 'http://localhost:3000/verification/' + result.insertId + '/' + data.password
+                                    random : data.code_otp
                                 })
                                 // send email confirm jika berhasil store ke database
                                 transporter.sendMail({
@@ -87,7 +89,8 @@ const RegisterController = (req, res) => {
                                 .then((respon) => {
                                     res.status(200).send({
                                         error : false,
-                                        message : "register Succes, email alerady sent !"
+                                        message : "register Succes, email alerady sent !",
+                                        id : result.insertId
                                     })
                                 })
                                 .catch((err) => {
@@ -191,8 +194,107 @@ const UserEmailVerificationController = (req, res) => {
     })
 }
 
+const UserEmailConfirmOTP = (req, res) => {
+    const data = req.body
+    db.query('select * from users where id = ?', data.id, (err, result) => {
+        try {
+            if(err) throw err
+            if(data.code_otp === result[0].code_otp){
+                db.query('update users set is_email_confirmation = 1 where id = ? and code_otp = ?', [data.id, data.code_otp], (err, result) => {
+                    try {
+                        if(err) throw err
+                        res.send('sukses')
+                    } catch (error) {
+                        res.status(500).send({
+                            error : true,
+                            message : error
+                        })
+                    }
+                })
+            }else{
+                res.send('gagal kode otp salah')
+            }
+        } catch (error) {
+            res.send({
+                error : true,
+                message : error
+            })
+        }
+    })
+}
+
+const OtpReset = (req, res) => {
+    const data = req.body
+    let code_otp = random()
+    // console.log(code_otp)
+    db.query('update users set code_otp = ? where id = ?', [code_otp, data.id], (err,result) => {
+        try {
+            if(err) throw err
+            res.send('okey berhasil')
+        } catch (error) {
+            res.send({
+                error : true,
+                message : error
+            })
+        }
+    })
+}
+
+const ResendEmailOTP = (req, res) => {
+    let id = req.params.id
+    db.query('select * from users where id = ?', id, (err, result) => {
+        try {
+            if(err) throw err
+            fs.readFile('/Users/macbookpro/Documents/Purwadhika/BackEnd/authentication-systm/backend/template/emailConfirmation.html',{encoding :'utf-8'}, (err, file)=>{
+                try {
+                if(err) throw err
+                const template = handlebars.compile(file)
+                const hasilTemplating = template({
+                    email : result[0].email, 
+                    random : result[0].code_otp
+                })
+                // send email confirm jika berhasil store ke database
+                transporter.sendMail({
+                    from : "admin",
+                    subject : "email verification",
+                    to : result[0].email,
+                    html : hasilTemplating
+                })
+                .then((respon) => {
+                    res.status(200).send({
+                        error : false,
+                        message : "email alerady sent !"
+                    })
+                })
+                .catch((err) => {
+                    res.status(500).send({
+                        error: true,
+                        message : err.message
+                    })
+                })
+
+                } catch (error) {
+                    res.send({
+                        error: true,
+                        message : err.message
+                    })
+                }
+            })
+
+            // res.send(result)
+        } catch (error) {
+            res.send({
+                error : true,
+                message : error
+            })
+        }
+    })
+}
 module.exports = {
     register : RegisterController,
     login : LoginController,
-    verification : UserEmailVerificationController
+    verification : UserEmailVerificationController,
+    Otp : UserEmailConfirmOTP,
+    OtpReset : OtpReset,
+    ResendEmailOTP : ResendEmailOTP
 }
