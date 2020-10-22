@@ -5,6 +5,7 @@ const transporter = require('./../helpers/transporter')
 const fs = require('fs')
 const handlebars = require('handlebars')
 const random = require('./../helpers/randomNumber')
+const jwt = require('jsonwebtoken')
 
 // control register
 const RegisterController = (req, res) => {
@@ -145,18 +146,25 @@ const LoginController = (req, res) => {
         try {
             if(err) throw err
             if(result.length > 0){
-                res.status(202).send({
-                    error : false,
-                    message : 'Login Succes',
-                    data : {
-                        id : result[0].id,
-                        email : result[0].email,
-                        created_at : result[0].created_at,
-                        is_email_confirmation : result[0].is_email_confirmation
+                jwt.sign({email : result[0].email, id: result[0].id, is_email_confirmation : result[0].is_email_confirmation}, '123abc', (err, token) => {
+                    try {
+                        if(err) throw err
+                        res.status(202).send({
+                            error : false,
+                            message : 'Login Succes',
+                            data : {
+                                token
+                            }
+                        })
+                    } catch (error) {
+                        res.json({
+                            error : true,
+                            message : error
+                        })
                     }
                 })
             }else{
-                res.status(406).send({
+                res.json({
                     error : true,
                     message : 'Account not already yet or password wrong'
                 })
@@ -290,11 +298,29 @@ const ResendEmailOTP = (req, res) => {
         }
     })
 }
+
+const isUserVerify = (req, res) => {
+    const data = req.bebas
+    console.log(data)
+        db.query('select * from users where id = ?;', data.id, (err,result) => {
+            try {
+                if(err) throw err
+                res.json({
+                    error : false,
+                    is_verified : result[0].is_email_confirmation
+                })
+            } catch (error) {
+                res.json({error : true, message : error.message, detail : error})
+            }
+        })
+}
+
 module.exports = {
     register : RegisterController,
     login : LoginController,
     verification : UserEmailVerificationController,
     Otp : UserEmailConfirmOTP,
     OtpReset : OtpReset,
-    ResendEmailOTP : ResendEmailOTP
+    ResendEmailOTP : ResendEmailOTP,
+    isUserVerify
 }

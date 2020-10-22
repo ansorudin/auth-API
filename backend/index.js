@@ -1,6 +1,8 @@
 const express = require('express')
 const cors = require('cors')
 const AuthRouter = require('./route/authRouter')
+const TodoRouter = require('./route/todoRouter')
+const LoggingApi = require('./middleware/loggingApi')
 
 
 const app = express()
@@ -12,7 +14,9 @@ app.use(cors())
 app.get('/', (req,res) => {
     res.send('Hello Auth')
 })
+app.use(LoggingApi)
 app.use('/auth', AuthRouter)
+app.use('/todo', TodoRouter)
 
 // app.get('/testmail', (req, res) => {
 
